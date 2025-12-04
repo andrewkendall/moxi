@@ -676,7 +676,7 @@ const char *state_text(enum conn_states state) {
  * processing that needs to happen on certain state transitions can
  * happen here.
  */
-void conn_set_state(conn* c, enum conn_states state) {
+void conn_set_state(conn *c, enum conn_states state) {
     cb_assert(c != NULL);
     cb_assert(state < conn_max_state);
 
@@ -3489,10 +3489,8 @@ static enum transmit_result transmit(conn *c) {
         }
         /* if res == 0 or res == -1 and error is not EAGAIN or EWOULDBLOCK,
            we have a real error, on which we close the connection */
-        if (settings.verbose > 0) {
-            moxi_log_write("%u: Failed to write, and not due to blocking: %s\n",
-                           c->sfd, strerror(error));
-        }
+        if (settings.verbose > 0)
+            perror("Failed to write, and not due to blocking");
 
         if (IS_UDP(c->transport))
             conn_set_state(c, conn_read);
@@ -3787,10 +3785,6 @@ void drive_machine(conn *c) {
             switch (transmit(c)) {
             case TRANSMIT_COMPLETE:
                 if (c->state == conn_mwrite) {
-                    if (IS_DOWNSTREAM(c->protocol) && c->item != NULL){
-                        do_item_remove(c->item);
-                        c->item = NULL;
-                    }
                     while (c->ileft > 0) {
                         item *it = *(c->icurr);
                         cb_assert((it->it_flags & ITEM_SLABBED) == 0);

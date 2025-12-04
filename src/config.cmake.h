@@ -90,7 +90,10 @@ typedef long long int64_t;
 #include <sys/time.h>
 #include <signal.h>
 
-/* @todo trondn fixme!! */
+/* Include inttypes.h first to get proper PRIu64 etc */
+#include <inttypes.h>
+
+/* Fallback definitions if not provided */
 #if !defined(__cplusplus) && !defined(PRIu64)
 #define PRIu64 "lu"
 #endif
@@ -104,7 +107,6 @@ typedef long long int64_t;
 
 /* Common section */
 #include <stdlib.h>
-#include <inttypes.h>
 #include <sys/types.h>
 
 #ifdef HAVE_SYSEXITS_H
@@ -128,6 +130,10 @@ typedef long long int64_t;
 #define CONFLATE_DB_PATH "${CONFLATE_DB_PATH}"
 
 #include <event.h>
+
+#if !defined(LIBEVENT_VERSION_NUMBER) && !defined(_EVENT_NUMERIC_VERSION) && !defined(WIN32)
+typedef int evutil_socket_t;
+#endif
 
 #ifndef DEFAULT_ERRORLOG
 #define DEFAULT_ERRORLOG ERRORLOG_STDERR

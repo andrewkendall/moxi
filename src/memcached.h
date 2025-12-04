@@ -524,8 +524,7 @@ conn *conn_new(const SOCKET sfd, const enum conn_states init_state,
                enum network_transport transport,
                struct event_base *base,
                conn_funcs *funcs, void *extra);
-
-void conn_set_state(conn* c, enum conn_states state);
+void conn_set_state(conn *c, enum conn_states state);
 void add_bytes_read(conn *c, int bytes_read);
 void out_string(conn *c, const char *str);
 

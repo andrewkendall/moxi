@@ -1,217 +1,329 @@
-PROJECT(Moxi)
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+cmake_minimum_required(VERSION 3.10)
+project(Moxi C)
 
-IF (${CMAKE_MAJOR_VERSION} GREATER 2)
-    CMAKE_POLICY(SET CMP0042 NEW)
-ENDIF (${CMAKE_MAJOR_VERSION} GREATER 2)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
-ADD_SUBDIRECTORY(libmemcached)
+# Build options
+option(BUILD_TESTS "Build test executables" OFF)
+option(BUILD_TOOLS "Build vbucket tools" ON)
 
-INCLUDE(CheckFunctionExists)
-INCLUDE(CheckIncludeFiles)
+# Find required packages
+find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
 
-ADD_DEFINITIONS(-DMOXI_ITEM_MALLOC=1)
+# Find libevent
+pkg_check_modules(LIBEVENT REQUIRED libevent)
 
+# Find libcurl  
+pkg_check_modules(CURL REQUIRED libcurl)
 
-INCLUDE_DIRECTORIES(BEFORE ${LIBEVENT_INCLUDE_DIR}
-                           ${CMAKE_INSTALL_PREFIX}/include
-                           ${CMAKE_CURRENT_SOURCE_DIR}/include
-                           ${CMAKE_SOURCE_DIR}/platform/include
-                           ${PROJECT_SOURCE_DIR}/libmemcached
-                           ${CMAKE_CURRENT_BINARY_DIR}
-                           ${CMAKE_CURRENT_SOURCE_DIR})
+# Find OpenSSL
+find_package(OpenSSL REQUIRED)
 
-INCLUDE_DIRECTORIES(AFTER ${CURL_INCLUDE_DIR})
+# Find zlib
+find_package(ZLIB REQUIRED)
 
+# Find cJSON - try pkg-config first, then manual search
+pkg_check_modules(CJSON libcjson)
+if(NOT CJSON_FOUND)
+    # Try to find cJSON manually
+    find_path(CJSON_INCLUDE_DIRS cJSON.h 
+              PATHS /usr/include /usr/local/include)
+    find_library(CJSON_LIBRARIES NAMES cjson cJSON
+                 PATHS /usr/lib /usr/local/lib /usr/lib64 /usr/local/lib64)
+    if(CJSON_INCLUDE_DIRS AND CJSON_LIBRARIES)
+        set(CJSON_FOUND TRUE)
+        message(STATUS "Found cJSON: ${CJSON_LIBRARIES}")
+    else()
+        message(FATAL_ERROR "cJSON library not found. Install cjson-devel or libcjson-dev")
+    endif()
+endif()
 
-ADD_LIBRARY(conflate SHARED
-            conflate/adhoc_commands.c
-            conflate/conflate.c
-            conflate/conflate_internal.h
-            conflate/kvpair.c
-            conflate/logging.c
-            conflate/persist.c
-            conflate/rest.c
-            conflate/rest.h
-            conflate/util.c
-            conflate/xmpp.c)
+# Compiler flags
+add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare)
+add_compile_options(-fno-strict-aliasing)
 
-IF(WIN32)
-    INCLUDE_DIRECTORIES(AFTER ${CMAKE_SOURCE_DIR}/platform/include/win32)
-    IF (${CMAKE_C_COMPILER_VERSION} VERSION_LESS 19)
-        ADD_DEFINITIONS(-Dsnprintf=_snprintf)
-    ENDIF (${CMAKE_C_COMPILER_VERSION} VERSION_LESS 19)
-ELSE(WIN32)
-    SET(ZLIB z)
-ENDIF(WIN32)
+# For older code that uses some deprecated features
+add_compile_options(-Wno-deprecated-declarations)
 
-IF(APPLE)
-   FIND_LIBRARY(SECURITY NAMES Security)
-   FIND_LIBRARY(CORE_FOUNDATION NAMES CoreFoundation)
-   SET(SSL_LIBRARIES ${SECURITY} ${CORE_FOUNDATION})
-ELSE(APPLE)
-   SET(SSL_LIBRARIES ${OPENSSL_LIBRARIES})
-ENDIF(APPLE)
+# Define for standalone build
+add_definitions(-DMOXI_ITEM_MALLOC=1)
+add_definitions(-DSTANDALONE_BUILD=1)
 
-TARGET_LINK_LIBRARIES(conflate ${CURL_LIBRARIES} platform ${ZLIB}
-                               ${SSL_LIBRARIES})
-SET_TARGET_PROPERTIES(conflate PROPERTIES SOVERSION 1.0.0)
-SET_TARGET_PROPERTIES(conflate PROPERTIES COMPILE_FLAGS
-                               -DBUILDING_LIBCONFLATE=1)
+# Include directories - our platform shim comes first
+include_directories(BEFORE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/platform
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/libmemcached
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/src
+)
 
-IF (INSTALL_HEADER_FILES)
-    INSTALL(FILES include/libconflate/conflate.h
-            DESTINATION include/libconflate)
-ENDIF (INSTALL_HEADER_FILES)
+include_directories(
+    ${LIBEVENT_INCLUDE_DIRS}
+    ${CURL_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
+    ${ZLIB_INCLUDE_DIRS}
+    ${CJSON_INCLUDE_DIRS}
+)
 
-INSTALL(TARGETS conflate
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
+link_directories(
+    ${LIBEVENT_LIBRARY_DIRS}
+    ${CURL_LIBRARY_DIRS}
+    ${CJSON_LIBRARY_DIRS}
+)
 
-ADD_EXECUTABLE(tests_check_kvpair
-               include/libconflate/conflate.h
-               tests/conflate/check_kvpair.c
-               tests/conflate/test_common.c
-               tests/conflate/test_common.h)
-TARGET_LINK_LIBRARIES(tests_check_kvpair conflate)
-ADD_TEST(libconflate-test-suite tests_check_kvpair)
+# Check for required functions
+include(CheckFunctionExists)
+include(CheckIncludeFiles)
+include(CheckSymbolExists)
 
-ADD_LIBRARY(vbucket SHARED
-            include/libvbucket/vbucket.h
-            include/libvbucket/visibility.h
-            vbucket/crc32.c
-            vbucket/hash.h
-            vbucket/hash.h
-            vbucket/ketama.c
-            vbucket/rfc1321/global.h
-            vbucket/rfc1321/md5.h
-            vbucket/vbucket.c)
+check_include_files("umem.h" HAVE_UMEM_H)
+check_include_files("sysexits.h" HAVE_SYSEXITS_H)
+check_function_exists(getpwnam HAVE_GETPWNAM)
+check_function_exists(getrlimit HAVE_GETRLIMIT)
+check_function_exists(mlockall HAVE_MLOCKALL)
+check_function_exists(getpagesizes HAVE_GETPAGESIZES)
 
-SET_TARGET_PROPERTIES(vbucket PROPERTIES SOVERSION 1.1.1)
-SET_TARGET_PROPERTIES(vbucket PROPERTIES
-                      COMPILE_FLAGS -DBUILDING_LIBVBUCKET=1)
+# Version info
+set(PRODUCT_VERSION "6.0.0")
+set(CONFLATE_DB_PATH "${CMAKE_INSTALL_PREFIX}/var/lib/moxi")
 
-IF (WIN32)
-    TARGET_LINK_LIBRARIES(vbucket cJSON platform)
-ELSE (WIN32)
-    TARGET_LINK_LIBRARIES(vbucket cJSON m platform)
-ENDIF (WIN32)
+# Configure header
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cmake.h
+    ${CMAKE_CURRENT_BINARY_DIR}/src/config.h
+)
 
-IF (INSTALL_HEADER_FILES)
-   INSTALL(FILES
-           include/libvbucket/vbucket.h
-           include/libvbucket/visibility.h
-           DESTINATION include/libvbucket)
-ENDIF(INSTALL_HEADER_FILES)
+# ============================================================================
+# libhashkit (from bundled libmemcached)
+# ============================================================================
+add_library(hashkit SHARED
+    libmemcached/libhashkit/algorithm.c
+    libmemcached/libhashkit/behavior.c
+    libmemcached/libhashkit/crc32.c
+    libmemcached/libhashkit/fnv.c
+    libmemcached/libhashkit/digest.c
+    libmemcached/libhashkit/function.c
+    libmemcached/libhashkit/hashkit.c
+    libmemcached/libhashkit/jenkins.c
+    libmemcached/libhashkit/ketama.c
+    libmemcached/libhashkit/md5.c
+    libmemcached/libhashkit/one_at_a_time.c
+    libmemcached/libhashkit/strerror.c
+)
+target_compile_definitions(hashkit PRIVATE BUILDING_HASHKIT=1)
+set_target_properties(hashkit PROPERTIES SOVERSION 1.0.0)
+target_link_libraries(hashkit m)
 
-INSTALL(TARGETS vbucket
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
+# Configure libmemcached
+check_symbol_exists(htonll arpa/inet.h HAVE_HTONLL)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/libmemcached/libmemcached_config.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/libmemcached_config.h
+)
 
-ADD_EXECUTABLE(vbuckettool
-               include/libvbucket/vbucket.h
-               include/libvbucket/visibility.h
-               vbucket/vbuckettool.c)
-TARGET_LINK_LIBRARIES(vbuckettool vbucket)
+# ============================================================================
+# libmcd (from bundled libmemcached)
+# ============================================================================
+add_library(mcd SHARED
+    libmemcached/libmemcached/allocators.c
+    libmemcached/libmemcached/analyze.c
+    libmemcached/libmemcached/auto.c
+    libmemcached/libmemcached/behavior.c
+    libmemcached/libmemcached/byteorder.c
+    libmemcached/libmemcached/connect.c
+    libmemcached/libmemcached/delete.c
+    libmemcached/libmemcached/do.c
+    libmemcached/libmemcached/dump.c
+    libmemcached/libmemcached/fetch.c
+    libmemcached/libmemcached/flush.c
+    libmemcached/libmemcached/flush_buffers.c
+    libmemcached/libmemcached/get.c
+    libmemcached/libmemcached/hash.c
+    libmemcached/libmemcached/hosts.c
+    libmemcached/libmemcached/io.c
+    libmemcached/libmemcached/key.c
+    libmemcached/libmemcached/memcached.c
+    libmemcached/libmemcached/parse.c
+    libmemcached/libmemcached/purge.c
+    libmemcached/libmemcached/quit.c
+    libmemcached/libmemcached/response.c
+    libmemcached/libmemcached/result.c
+    libmemcached/libmemcached/server.c
+    libmemcached/libmemcached/server_list.c
+    libmemcached/libmemcached/stats.c
+    libmemcached/libmemcached/string.c
+    libmemcached/libmemcached/storage.c
+    libmemcached/libmemcached/strerror.c
+    libmemcached/libmemcached/verbosity.c
+    libmemcached/libmemcached/version.c
+)
+target_include_directories(mcd PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/libmemcached
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+set_target_properties(mcd PROPERTIES SOVERSION 6.1.0)
+target_link_libraries(mcd hashkit)
 
-ADD_EXECUTABLE(vbucketkeygen
-               include/libvbucket/vbucket.h
-               include/libvbucket/visibility.h
-               vbucket/vbucketkeygen.c)
-TARGET_LINK_LIBRARIES(vbucketkeygen vbucket)
+# ============================================================================
+# libconflate
+# ============================================================================
+add_library(conflate SHARED
+    conflate/adhoc_commands.c
+    conflate/conflate.c
+    conflate/kvpair.c
+    conflate/logging.c
+    conflate/persist.c
+    conflate/rest.c
+    conflate/util.c
+    conflate/xmpp.c
+)
+target_compile_definitions(conflate PRIVATE BUILDING_LIBCONFLATE=1)
+set_target_properties(conflate PROPERTIES SOVERSION 1.0.0)
+target_link_libraries(conflate 
+    ${CURL_LIBRARIES}
+    ${ZLIB_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    Threads::Threads
+)
 
-#
-# The tests. These are automatically executed as part of the build!
-#
+# ============================================================================
+# libvbucket
+# ============================================================================
+add_library(vbucket SHARED
+    vbucket/crc32.c
+    vbucket/ketama.c
+    vbucket/vbucket.c
+)
+target_compile_definitions(vbucket PRIVATE BUILDING_LIBVBUCKET=1)
+set_target_properties(vbucket PROPERTIES SOVERSION 1.1.1)
+target_link_libraries(vbucket 
+    ${CJSON_LIBRARIES}
+    m
+    Threads::Threads
+)
 
-ADD_EXECUTABLE(vbucket_testapp
-               include/libvbucket/vbucket.h
-               include/libvbucket/visibility.h
-               tests/vbucket/macros.h
-               tests/vbucket/testapp.c)
-TARGET_LINK_LIBRARIES(vbucket_testapp vbucket)
+# ============================================================================
+# moxi executable
+# ============================================================================
+add_executable(moxi
+    src/memcached.c
+    src/genhash.c
+    src/hash.c
+    src/slabs.c
+    src/items.c
+    src/assoc.c
+    src/thread.c
+    src/stats.c
+    src/util.c
+    src/work.c
+    src/cproxy.c
+    src/cproxy_config.c
+    src/cproxy_protocol_a.c
+    src/cproxy_protocol_a2a.c
+    src/cproxy_protocol_a2b.c
+    src/cproxy_protocol_b.c
+    src/cproxy_protocol_b2b.c
+    src/cproxy_multiget.c
+    src/cproxy_stats.c
+    src/cproxy_front.c
+    src/matcher.c
+    src/murmur_hash.c
+    src/mcs.c
+    src/stdin_check.c
+    src/log.c
+    src/htgram.c
+    src/agent_config.c
+    src/agent_ping.c
+    src/agent_stats.c
+    src/daemon.c
+    src/cache.c
+    src/strsep.c
+)
 
-ADD_EXECUTABLE(vbucket_regression
-               include/libvbucket/vbucket.h
-               include/libvbucket/visibility.h
-               tests/vbucket/macros.h
-               tests/vbucket/regression.c)
-TARGET_LINK_LIBRARIES(vbucket_regression vbucket)
+target_link_libraries(moxi
+    conflate
+    vbucket
+    mcd
+    ${LIBEVENT_LIBRARIES}
+    Threads::Threads
+)
 
-ADD_EXECUTABLE(vbucket_testketama
-               vbucket/ketama.c
-               vbucket/rfc1321/global.h
-               vbucket/rfc1321/md5.h
-               tests/vbucket/testketama.c)
-TARGET_LINK_LIBRARIES(vbucket_testketama vbucket)
+# ============================================================================
+# Tools
+# ============================================================================
+if(BUILD_TOOLS)
+    add_executable(vbuckettool vbucket/vbuckettool.c)
+    target_link_libraries(vbuckettool vbucket)
+    
+    add_executable(vbucketkeygen vbucket/vbucketkeygen.c)
+    target_link_libraries(vbucketkeygen vbucket)
+    
+    install(TARGETS vbuckettool vbucketkeygen
+            RUNTIME DESTINATION bin)
+endif()
 
-ADD_TEST(vbucket-basic-tests vbucket_testapp ${CMAKE_CURRENT_SOURCE_DIR})
-ADD_TEST(vbucket-regression-tests vbucket_regression ${CMAKE_CURRENT_SOURCE_DIR})
-ADD_TEST(vbucket-ketama-tests vbucket_testketama)
+# ============================================================================
+# Tests
+# ============================================================================
+if(BUILD_TESTS)
+    enable_testing()
+    
+    add_executable(moxi_sizes tests/moxi/sizes.c)
+    
+    add_executable(moxi_htgram_test tests/moxi/htgram_test.c src/htgram.c)
+    target_link_libraries(moxi_htgram_test Threads::Threads)
+    
+    add_executable(vbucket_testapp tests/vbucket/testapp.c)
+    target_link_libraries(vbucket_testapp vbucket)
+    
+    add_executable(vbucket_regression tests/vbucket/regression.c)
+    target_link_libraries(vbucket_regression vbucket)
+    
+    add_executable(vbucket_testketama 
+        vbucket/ketama.c
+        tests/vbucket/testketama.c
+    )
+    target_link_libraries(vbucket_testketama vbucket)
+    
+    add_executable(tests_check_kvpair
+        tests/conflate/check_kvpair.c
+        tests/conflate/test_common.c
+    )
+    target_link_libraries(tests_check_kvpair conflate)
+    
+    add_test(NAME moxi-sizes COMMAND moxi_sizes)
+    add_test(NAME moxi-htgram-test COMMAND moxi_htgram_test)
+    add_test(NAME vbucket-basic-tests COMMAND vbucket_testapp ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME vbucket-regression-tests COMMAND vbucket_regression ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME vbucket-ketama-tests COMMAND vbucket_testketama)
+    add_test(NAME libconflate-test-suite COMMAND tests_check_kvpair)
+endif()
 
-
-
-
-
-IF ("${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS")
-   SET(UMEM_LIBRARY -lumem)
-   SET(PRVILEGES_SOURCES src/solaris_priv.c)
-ENDIF ("${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS")
-
-IF (WIN32)
-   INCLUDE_DIRECTORIES(AFTER ${CMAKE_CURRENT_SOURCE_DIR}/../platform/include/win32)
-ENDIF (WIN32)
-
-CHECK_INCLUDE_FILES("umem.h" HAVE_UMEM_H)
-CHECK_INCLUDE_FILES("sysexits.h" HAVE_SYSEXITS_H)
-CHECK_FUNCTION_EXISTS(getpwnam HAVE_GETPWNAM)
-CHECK_FUNCTION_EXISTS(getrlimit HAVE_GETRLIMIT)
-CHECK_FUNCTION_EXISTS(mlockall HAVE_MLOCKALL)
-CHECK_FUNCTION_EXISTS(getpagesizes HAVE_GETPAGESIZES)
-
-SET(CONFLATE_DB_PATH ${CMAKE_INSTALL_PREFIX}/var/lib/moxi)
-
-CONFIGURE_FILE (${CMAKE_CURRENT_SOURCE_DIR}/src/config.cmake.h
-                ${CMAKE_CURRENT_BINARY_DIR}/src/config.h)
-
-ADD_EXECUTABLE(moxi_sizes tests/moxi/sizes.c)
-ADD_EXECUTABLE(moxi_htgram_test tests/moxi/htgram_test.c src/htgram.c)
-TARGET_LINK_LIBRARIES(moxi_htgram_test platform)
-
-ADD_EXECUTABLE(moxi
-               src/memcached.c src/genhash.c src/hash.c src/slabs.c
-               src/items.c src/assoc.c src/thread.c src/stats.c
-               src/util.c src/work.c src/cproxy.c src/cproxy_config.c
-               src/cproxy_protocol_a.c src/cproxy_protocol_a2a.c
-               src/cproxy_protocol_a2b.c src/cproxy_protocol_b.c
-               src/cproxy_protocol_b2b.c src/cproxy_multiget.c
-               src/cproxy_stats.c src/cproxy_front.c src/matcher.c
-               src/murmur_hash.c src/mcs.c src/stdin_check.c src/log.c
-               src/htgram.c src/agent_config.c src/agent_ping.c
-               src/agent_stats.c src/daemon.c src/cache.c src/strsep.c
-               ${PRVILEGES_SOURCES})
-
-TARGET_LINK_LIBRARIES(moxi conflate vbucket platform mcd ${LIBEVENT_LIBRARIES} ${COUCHBASE_NETWORK_LIBS} ${UMEM_LIBRARY})
-
-INSTALL(TARGETS moxi
+# ============================================================================
+# Installation
+# ============================================================================
+install(TARGETS moxi
         RUNTIME DESTINATION bin)
 
-INSTALL(TARGETS vbucketkeygen vbuckettool
-        RUNTIME DESTINATION bin/tools)
+install(TARGETS conflate vbucket mcd hashkit
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib)
 
-IF (APPLE)
-   # Tools are installed in bin/tools/; need to map from there to lib/
-   SET_TARGET_PROPERTIES(vbucketkeygen vbuckettool
-                         PROPERTIES
-                         INSTALL_RPATH "@executable_path/../../lib")
-ENDIF ()
+# Create var directory for conflate db
+install(DIRECTORY DESTINATION var/lib/moxi)
 
-ADD_TEST(moxi-sizes moxi_sizes)
-ADD_TEST(moxi-htgram-test moxi_htgram_test)
-
-IF (${CMAKE_MAJOR_VERSION} LESS 3)
-   SET_TARGET_PROPERTIES(vbucket PROPERTIES INSTALL_NAME_DIR
-                         ${CMAKE_INSTALL_PREFIX}/lib)
-ENDIF (${CMAKE_MAJOR_VERSION} LESS 3)
+# ============================================================================
+# Package info
+# ============================================================================
+message(STATUS "")
+message(STATUS "Moxi ${PRODUCT_VERSION} configuration:")
+message(STATUS "  libevent: ${LIBEVENT_LIBRARIES}")
+message(STATUS "  libcurl:  ${CURL_LIBRARIES}")  
+message(STATUS "  cJSON:    ${CJSON_LIBRARIES}")
+message(STATUS "  OpenSSL:  ${OPENSSL_LIBRARIES}")
+message(STATUS "  zlib:     ${ZLIB_LIBRARIES}")
+message(STATUS "")

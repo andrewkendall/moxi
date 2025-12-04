@@ -12,6 +12,7 @@
 #include "libmemcached_config.h"
 
 #include <assert.h>
+#include <platform/cbassert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>

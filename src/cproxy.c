@@ -2219,22 +2219,29 @@ void cproxy_on_pause_downstream_conn(conn *c) {
     if (!d || c->rbytes > 0) {
         zstored_downstream_conns *conns;
 
-        moxi_log_write("%d: Closed the downstream since got"
-                       "an event on downstream or extra data on downstream."
-                       " (rbytes: %u)\n", c->sfd, c->rbytes);
+        if (settings.verbose) {
+            moxi_log_write("%d: Closed the downstream since got"
+                    "an event on downstream or extra data on downstream\n",
+                    c->sfd);
+        }
 
         conns = zstored_get_downstream_conns(c->thread, c->host_ident);
         if (conns) {
             bool found = false;
             conns->dc = conn_list_remove(conns->dc, NULL, c, &found);
             if (!found) {
-                moxi_log_write("<%d: %s:%d Not able to find connection"
-                               " in zstore conns\n",
-                               c->sfd, __FILE__, __LINE__);
+                cb_assert(0);
+                if (settings.verbose) {
+                    moxi_log_write("<%d Not able to find in zstore conns\n",
+                            c->sfd);
+                }
             }
         } else {
-            moxi_log_write("<%d %s:%d Not able to find zstore conns\n",
-                           c->sfd, __FILE__, __LINE__);
+            cb_assert(0);
+            if (settings.verbose) {
+                moxi_log_write("<%d Not able to find zstore conns\n",
+                        c->sfd);
+            }
         }
         cproxy_close_conn(c);
         return;

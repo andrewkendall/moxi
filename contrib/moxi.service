@@ -1,0 +1,27 @@
+[Unit]
+Description=Moxi - Memcached Proxy
+After=network.target
+Documentation=https://github.com/couchbase/moxi
+
+[Service]
+Type=simple
+User=moxi
+Group=moxi
+ExecStart=/usr/local/bin/moxi -z 11211=localhost:11212
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=moxi
+
+[Install]
+WantedBy=multi-user.target
