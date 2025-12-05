@@ -47,6 +47,14 @@ add_compile_options(-fno-strict-aliasing)
 # For older code that uses some deprecated features
 add_compile_options(-Wno-deprecated-declarations)
 
+# Performance optimization flags for Release builds
+if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    add_compile_options(-O3 -march=native -mtune=native)
+    add_compile_options(-flto)  # Link-time optimization
+    add_compile_options(-funroll-loops)
+    add_link_options(-flto)
+endif()
+
 # Define for standalone build
 add_definitions(-DMOXI_ITEM_MALLOC=1)
 add_definitions(-DSTANDALONE_BUILD=1)
