@@ -81,7 +81,7 @@ exit 0
 %dir %attr(750, moxi, moxi) %{_localstatedir}/lib/moxi
 
 %changelog
-* Wed Dec 04 2024 Andrew Kendall <standalone@example.com> - 6.0.0-1
+* Wed Dec 04 2025 Andrew Kendall - 6.0.0-1
 - Major version bump to 6.0.0
 - Complete rewrite of CMake build system for standalone building
 - Added POSIX platform shim for threading and assertions

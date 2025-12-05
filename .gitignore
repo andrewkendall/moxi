@@ -111,3 +111,4 @@ libmemcached-*/libmemcached/libmemcached_config.h
 /vbucketkeygen
 /vbuckettool
 Testing
+.DS_Store
