@@ -246,4 +246,6 @@ Recent updates (Dec 2025) have been made to improve performance on modern system
 
 *   **Increased Buffer Size:** The internal data buffer size (`DATA_BUFFER_SIZE`) has been increased from 2KB to 16KB. This reduces the number of system calls (`read`/`recv`) and memory reallocations required when handling larger values, significantly improving throughput.
 *   **Optimized Hashing:** The default hash function has been switched to **MurmurHash2**. This provides faster hash computation and better distribution compared to the legacy Jenkins hash, improving lookup performance in the proxy.
+*   **Reduced Latency:** `TCP_NODELAY` (Nagle's algorithm disabled) is now explicitly set on all incoming TCP connections. This significantly reduces latency for request/response workloads.
+*   **Connection Health:** `SO_KEEPALIVE` is enabled on client connections to better detect and clean up dead connections.
 

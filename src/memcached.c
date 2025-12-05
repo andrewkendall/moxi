@@ -435,6 +435,18 @@ conn *conn_new(const SOCKET sfd, enum conn_states init_state,
 
     c->sfd = sfd;
     c->state = init_state;
+
+    if (transport == tcp_transport && init_state != conn_listening) {
+        int flags = 1;
+        int error = setsockopt(sfd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags));
+        if (error != 0)
+            perror("setsockopt(TCP_NODELAY)");
+
+        error = setsockopt(sfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&flags, sizeof(flags));
+        if (error != 0)
+            perror("setsockopt(SO_KEEPALIVE)");
+    }
+
     c->rlbytes = 0;
     c->cmd = -1;
     c->rbytes = c->wbytes = 0;
