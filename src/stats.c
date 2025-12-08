@@ -90,7 +90,7 @@ static PREFIX_STATS *stats_prefix_find(const char *key, const size_t nkey) {
             return pfs;
     }
 
-    pfs = calloc(sizeof(PREFIX_STATS), 1);
+    pfs = calloc(1, sizeof(PREFIX_STATS));
     if (NULL == pfs) {
         perror("Can't allocate space for stats structure: calloc");
         return NULL;

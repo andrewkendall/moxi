@@ -153,7 +153,7 @@ struct proxy_behavior {
                                    /* clients can actually do anything useful. */
 };
 
-proxy_behavior behavior_default_g;
+extern proxy_behavior behavior_default_g;
 
 struct proxy_behavior_pool {
     proxy_behavior  base; /* Proxy pool-level (PL) behavior. */

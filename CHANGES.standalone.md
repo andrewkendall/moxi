@@ -13,6 +13,7 @@
   - MB-24509: Prevent truncation of documents set with noreply
   - CBSE-3717: Various connection handling improvements
 - **Rocky Linux 10 Support** - Replaced deprecated `sigignore` with `signal` and fixed `calloc` argument order in `conflate.c`.
+- **Linker Fixes** - Fixed multiple definition of `behavior_default_g` and corrected `calloc` usage in `stats.c`, `mcs.c`, and `htgram.c`.
 
 ---
 

@@ -49,7 +49,7 @@ HTGRAM_HANDLE htgram_mk(int64_t bin_start,
                         HTGRAM_HANDLE next) {
     int64_t r = bin_start;
     int64_t w = bin_start_width;
-    struct htgram_st *h = calloc(sizeof(struct htgram_st), 1);
+    struct htgram_st *h = calloc(1, sizeof(struct htgram_st));
     if (h == NULL) {
         return NULL;
     }
@@ -62,7 +62,7 @@ HTGRAM_HANDLE htgram_mk(int64_t bin_start,
 
     if (num_bins > 0) {
         size_t i;
-        h->bins = calloc(sizeof(struct htgram_bin_st), num_bins);
+        h->bins = calloc(num_bins, sizeof(struct htgram_bin_st));
         if (h->bins == NULL) {
             free(h);
             return NULL;

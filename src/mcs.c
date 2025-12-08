@@ -169,7 +169,7 @@ mcs_st *lvb_create(mcs_st *ptr, const char *config,
         ptr->data = vch;
         ptr->nservers = vbucket_config_get_num_servers(vch);
         if (ptr->nservers > 0) {
-            ptr->servers = calloc(sizeof(mcs_server_st), ptr->nservers);
+            ptr->servers = calloc(ptr->nservers, sizeof(mcs_server_st));
             if (ptr->servers != NULL) {
                 int i, j;
                 for (i = 0; i < ptr->nservers; i++) {
@@ -355,7 +355,7 @@ mcs_st *lmc_create(mcs_st *ptr, const char *config,
             ptr->data     = mst;
             ptr->nservers = (int) memcached_server_list_count(mservers);
             if (ptr->nservers > 0) {
-                ptr->servers = calloc(sizeof(mcs_server_st), ptr->nservers);
+                ptr->servers = calloc(ptr->nservers, sizeof(mcs_server_st));
                 if (ptr->servers != NULL) {
                     int i;
                     int j;
