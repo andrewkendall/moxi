@@ -19,7 +19,7 @@ Moxi is a memcached proxy that provides:
 
 Install the required development packages:
 
-**Rocky Linux 8/9 / RHEL 8/9:**
+**Rocky Linux 8/9/10 / RHEL 8/9/10:**
 ```bash
 sudo dnf install -y epel-release
 sudo dnf install -y cmake gcc make \

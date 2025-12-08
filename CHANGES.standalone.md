@@ -12,6 +12,7 @@
   - MB-25403: Remove ep_version statistic
   - MB-24509: Prevent truncation of documents set with noreply
   - CBSE-3717: Various connection handling improvements
+- **Rocky Linux 10 Support** - Replaced deprecated `sigignore` with `signal` and fixed `calloc` argument order in `conflate.c`.
 
 ---
 

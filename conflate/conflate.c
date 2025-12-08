@@ -14,7 +14,7 @@ void run_conflate(void *);
 
 
 conflate_config_t* dup_conf(conflate_config_t c) {
-    conflate_config_t *rv = calloc(sizeof(conflate_config_t), 1);
+    conflate_config_t *rv = calloc(1, sizeof(conflate_config_t));
     cb_assert(rv);
 
     rv->jid = safe_strdup(c.jid);
